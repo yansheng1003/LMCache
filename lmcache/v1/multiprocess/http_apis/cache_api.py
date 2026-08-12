@@ -150,6 +150,8 @@ async def get_prefetch(request_id: str, request: Request) -> dict[str, object]:
 _BLOCK_AXIS_BY_FORMAT: dict[Any, int] = {
     lmc_ops.EngineKVFormat.NL_X_TWO_NB_BS_NH_HS: 1,  # [2, NB, BS, NH, HS]
     lmc_ops.EngineKVFormat.NL_X_NB_TWO_BS_NH_HS: 0,  # [NB, 2, BS, NH, HS]
+    # int8_per_token_head: [NB, 2, BS, NH, HS+4], num_blocks on dim-0
+    lmc_ops.EngineKVFormat.NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD: 0,
     lmc_ops.EngineKVFormat.NL_X_NB_BS_HS: 0,  # MLA: [NB, BS, HS]
     lmc_ops.EngineKVFormat.NL_X_NB_BSV_BSS: 0,  # DSA indexer: [NB, BS, 132]
     lmc_ops.EngineKVFormat.NL_X_TWO_NB_NH_BS_HS: 1,  # [2, NB, NH, BS, HS]

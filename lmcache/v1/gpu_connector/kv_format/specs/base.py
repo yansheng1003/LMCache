@@ -58,8 +58,21 @@ _ACCESSORS = {
 }
 
 
+# Per-token-head quantization suffixes appended to a base format name. They
+# describe the storage dtype, not an extra shape axis: the scale pad lives
+# inside the trailing ``HS`` token (e.g. ``NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD``
+# is physically ``NL x [NB, 2, BS, NH, HS]`` with HS = head_size + 4). Stripped
+# before rendering so the shape stays the base format's.
+_QUANT_SUFFIXES = ("_INT8_PER_TOKEN_HEAD",)
+
+
 def _render_shape(fmt: "lmc_ops.EngineKVFormat", token: Callable[[str], str]) -> str:
-    *lists, inner = fmt.name.split("_X_")
+    name = fmt.name
+    for suffix in _QUANT_SUFFIXES:
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+            break
+    *lists, inner = name.split("_X_")
     body = ", ".join(token(t) for t in inner.split("_"))
     return " x ".join([token(t) for t in lists] + [f"[{body}]"])
 

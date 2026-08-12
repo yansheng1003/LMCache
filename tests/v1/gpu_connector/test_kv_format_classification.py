@@ -34,6 +34,7 @@ EXPECTED = {
     F.NL_X_NB_BS_HS: (False, False, True, True),
     F.NL_X_NBBS_ONE_HS: (False, False, True, True),
     F.NL_X_NB_BSV_BSS: (False, False, True, True),
+    F.NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD: (False, False, True, False),
 }
 
 # Facts that only the spec carries (no c_ops predicate mirrors them):
@@ -54,6 +55,7 @@ EXPECTED_SPEC_FACTS = {
     F.NL_X_NB_BS_HS: (False, False, False, False),
     F.NL_X_NBBS_ONE_HS: (False, False, False, True),
     F.NL_X_NB_BSV_BSS: (False, False, False, False),
+    F.NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD: (False, False, False, False),
 }
 
 

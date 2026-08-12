@@ -138,6 +138,17 @@ enum class EngineKVFormat : int {
 
   // vLLM DSA indexer k-cache [NB,BS,132] u8, paged [BSxvals][BSxscales]; kv 1
   NL_X_NB_BSV_BSS = 14,
+
+  /*
+  used by:
+  - vLLM non-MLA flash infer (NHD layout) with int8_per_token_head KV cache
+  physical shape per layer: [num_blocks, 2, block_size, num_heads, head_size + 4]
+  The trailing 4 elements of each head hold one fp32 scale (per-token-head
+  quantization). Structurally identical to NL_X_NB_TWO_BS_NH_HS: the transfer
+  kernels treat the trailing axis as opaque bytes, so the offset math matches
+  the base format with hs == head_size + 4.
+  */
+  NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD = 15,
 };
 
 // __host__ __device__ under CUDA/HIP so the kernels can call these; the guard
@@ -186,6 +197,7 @@ LMC_KV_FORMAT_HD constexpr FormatFacts FORMAT_FACTS[] = {
                                       .is_fused_packed = true},
     /* 13 NL_X_NB_BS_NH_CS        */ {.is_layer_list = true,  .is_fused_packed = true},
     /* 14 NL_X_NB_BSV_BSS         */ {.is_layer_list = true,  .is_mla = true},
+    /* 15 NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD */ {.is_layer_list = true},
 };
 // clang-format on
 

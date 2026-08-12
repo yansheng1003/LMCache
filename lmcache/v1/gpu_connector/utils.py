@@ -743,8 +743,14 @@ def _get_head_size_view(
                 )
             k, v = t[0], t[1]  # [NB,BS,NH,HS]
 
-        elif engine_kv_format == lmc_ops.EngineKVFormat.NL_X_NB_TWO_BS_NH_HS:
-            # per-layer: [NB, 2, BS, NH, HS]
+        elif (
+            engine_kv_format == lmc_ops.EngineKVFormat.NL_X_NB_TWO_BS_NH_HS
+            or engine_kv_format
+            == lmc_ops.EngineKVFormat.NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD
+        ):
+            # per-layer: [NB, 2, BS, NH, HS] (int8_per_token_head: HS is the
+            # padded head stride head_size + 4; the scale rides inside the
+            # flattened per-token row, so the decode is identical)
             if t.shape[1] != 2:
                 raise ValueError(
                     f"{engine_kv_format} expects [NB,2,BS,NH,HS], got {t.shape}"

@@ -252,8 +252,12 @@ __device__ __forceinline__ int64_t page_buffer_offset(
     return k_or_v * page_buffer_size * scalars_per_token +
            token_idx * scalars_per_token + scalar_offset;
   }
-  // vllm flash infer (NHD)
-  else if constexpr (format == EngineKVFormat::NL_X_NB_TWO_BS_NH_HS) {
+  // vllm flash infer (NHD) — incl. the int8_per_token_head variant whose
+  // trailing HS is head_size + 4 (the scale pad rides inside the opaque
+  // per-token row, so the offset math is identical).
+  else if constexpr (
+      format == EngineKVFormat::NL_X_NB_TWO_BS_NH_HS ||
+      format == EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD) {
     const int block_idx = token_idx / block_size;
     const int block_offset = token_idx % block_size;
     return block_idx * 2 * block_size * scalars_per_token +
@@ -663,6 +667,11 @@ void multi_layer_kv_transfer_templated(
         LAUNCH_KERNEL_WITH_FORMAT(T, false,
                                   EngineKVFormat::NL_X_NB_TWO_BS_NH_HS);
         break;
+      case EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD:
+        LAUNCH_KERNEL_WITH_FORMAT(
+            T, false,
+            EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD);
+        break;
       case EngineKVFormat::NL_X_NB_BS_HS:
         LAUNCH_KERNEL_WITH_FORMAT(T, false, EngineKVFormat::NL_X_NB_BS_HS);
         break;
@@ -709,6 +718,10 @@ void multi_layer_kv_transfer_templated(
       case EngineKVFormat::NL_X_NB_TWO_BS_NH_HS:
         LAUNCH_KERNEL_WITH_FORMAT(T, true,
                                   EngineKVFormat::NL_X_NB_TWO_BS_NH_HS);
+        break;
+      case EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD:
+        LAUNCH_KERNEL_WITH_FORMAT(
+            T, true, EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD);
         break;
       case EngineKVFormat::NL_X_NB_BS_HS:
         LAUNCH_KERNEL_WITH_FORMAT(T, true, EngineKVFormat::NL_X_NB_BS_HS);
@@ -821,6 +834,11 @@ void multi_layer_kv_transfer_fused_templated(
       case EngineKVFormat::NL_X_NB_TWO_BS_NH_HS:                              \
         LAUNCH_FUSED_WITH_FORMAT(T_, DIR,                                     \
                                  EngineKVFormat::NL_X_NB_TWO_BS_NH_HS)        \
+        break;                                                                \
+      case EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD:          \
+        LAUNCH_FUSED_WITH_FORMAT(                                             \
+            T_, DIR,                                                          \
+            EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD)         \
         break;                                                                \
       case EngineKVFormat::NL_X_NB_BS_HS:                                     \
         LAUNCH_FUSED_WITH_FORMAT(T_, DIR, EngineKVFormat::NL_X_NB_BS_HS)      \

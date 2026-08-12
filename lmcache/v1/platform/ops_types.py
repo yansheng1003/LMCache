@@ -104,6 +104,12 @@ class EngineKVFormat(IntEnum):
     # c_ops only (no pure-torch transfer path)
     NL_X_NB_BSV_BSS = 14
 
+    # used by: vLLM non-MLA flash infer (NHD) with int8_per_token_head KV
+    # cache. Per-layer physical shape [NB, 2, BS, NH, HS+4]: the trailing 4
+    # elements of each head hold one fp32 scale. Structurally identical to
+    # NL_X_NB_TWO_BS_NH_HS; the transfer treats the trailing axis as opaque.
+    NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD = 15
+
 
 # Backward-compat alias
 GPUKVFormat = EngineKVFormat
@@ -148,6 +154,7 @@ def is_layer_list(engine_kv_format: EngineKVFormat) -> bool:
         EngineKVFormat.NL_X_NB_NH_BS_CS,
         EngineKVFormat.NL_X_NB_BS_NH_CS,
         EngineKVFormat.NL_X_NB_BSV_BSS,
+        EngineKVFormat.NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD,
     )
 
 

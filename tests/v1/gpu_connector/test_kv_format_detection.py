@@ -53,6 +53,31 @@ def test_vllm_flash_attn_nhd_vs_hnd(monkeypatch):
 def test_vllm_flash_infer_nhd(monkeypatch):
     monkeypatch.setattr(_VLLM_DEV, "cuda")
     kv = [_t(NB, 2, BS, NH, HS) for _ in range(NL)]
+    fmt, out = detect_format(kv, EngineType.VLLM, {"kv_layout": "NHD"})
+    assert fmt == F.NL_X_NB_TWO_BS_NH_HS
+
+
+def test_vllm_flash_infer_nhd_int8_per_token_head(monkeypatch):
+    # int8_per_token_head pads each head's trailing 4 elements with one fp32
+    # scale: [NB, 2, BS, NH, HS+4]. Detection must land on the dedicated
+    # format, not the plain flash-infer NHD one. Uses a realistic head size
+    # (128 -> 132), since the padded-hs signature assumes standard head sizes
+    # are multiples of 16.
+    if not hasattr(F, "NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD"):
+        pytest.skip("c_ops build lacks NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD")
+    monkeypatch.setattr(_VLLM_DEV, "cuda")
+    kv = [torch.zeros(NB, 2, BS, NH, 132, dtype=torch.int8) for _ in range(NL)]
+    fmt, out = detect_format(kv, EngineType.VLLM, {"kv_layout": "NHD"})
+    assert fmt == F.NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD
+    assert tuple(out[0].shape) == (NB, 2, BS, NH, 132)
+    assert out[0].dtype == torch.int8
+
+
+def test_vllm_flash_infer_nhd_plain_int8_does_not_match_pth(monkeypatch):
+    # A plain int8 flash-infer cache (trailing dim == head size, a multiple of
+    # 16) must NOT be classified as the padded per-token-head format.
+    monkeypatch.setattr(_VLLM_DEV, "cuda")
+    kv = [torch.zeros(NB, 2, BS, NH, 128, dtype=torch.int8) for _ in range(NL)]
     fmt, _ = detect_format(kv, EngineType.VLLM, {"kv_layout": "NHD"})
     assert fmt == F.NL_X_NB_TWO_BS_NH_HS
 

@@ -64,6 +64,21 @@ class VLLM_Detector(EngineDetector):
             if first_tensor.shape[1] == 2:  # num_blocks first
                 if is_hnd:
                     return lmc_ops.EngineKVFormat.NL_X_NB_TWO_NH_BS_HS, kv_caches
+                # vLLM int8_per_token_head pads each head's trailing 4
+                # elements with one fp32 scale: [NB, 2, BS, NH, HS + 4].
+                # The dtype is int8 and the padded head stride is HS+4 (a
+                # non-standard head size), so the shape+dtype feature
+                # identifies it: padded_hs - 4 is a multiple of 16, while a
+                # plain head size is itself a multiple of 16.
+                if (
+                    first_tensor.dtype == torch.int8
+                    and first_tensor.shape[-1] > 4
+                    and (first_tensor.shape[-1] - 4) % 16 == 0
+                ):
+                    return (
+                        lmc_ops.EngineKVFormat.NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD,
+                        kv_caches,
+                    )
                 return lmc_ops.EngineKVFormat.NL_X_NB_TWO_BS_NH_HS, kv_caches
         if list_depth == 1 and tensor_ndim == 3:  # MLA (or DSA indexer cache)
             if first_tensor.dtype == torch.uint8 and int(first_tensor.shape[-1]) == 132:

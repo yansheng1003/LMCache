@@ -78,8 +78,11 @@ inline int64_t page_buffer_offset(const int k_or_v, const int token_idx,
     return k_or_v * page_buffer_size * scalars_per_token +
            token_idx * scalars_per_token + scalar_offset;
   }
-  // vLLM flash infer
-  else if constexpr (format == EngineKVFormat::NL_X_NB_TWO_BS_NH_HS) {
+  // vLLM flash infer — incl. the int8_per_token_head variant whose trailing
+  // HS is head_size + 4 (the scale pad rides inside the opaque per-token row).
+  else if constexpr (
+      format == EngineKVFormat::NL_X_NB_TWO_BS_NH_HS ||
+      format == EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD) {
     const int block_idx = token_idx / block_size;
     const int block_offset = token_idx % block_size;
     return block_idx * 2 * block_size * scalars_per_token +
@@ -108,7 +111,9 @@ inline int64_t page_buffer_base_offset(const int k_or_v, const int token_idx,
   } else if constexpr (format == EngineKVFormat::NL_X_TWO_NB_BS_NH_HS) {
     return k_or_v * page_buffer_size * scalars_per_token +
            token_idx * scalars_per_token;
-  } else if constexpr (format == EngineKVFormat::NL_X_NB_TWO_BS_NH_HS) {
+  } else if constexpr (
+      format == EngineKVFormat::NL_X_NB_TWO_BS_NH_HS ||
+      format == EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD) {
     const int block_idx = token_idx / block_size;
     const int block_offset = token_idx % block_size;
     return block_idx * 2 * block_size * scalars_per_token +
@@ -423,6 +428,11 @@ void multi_layer_kv_transfer_templated(
           LAUNCH_FUSED_KV_KERNEL_WITH_FORMAT(
               T, false, EngineKVFormat::NL_X_NB_TWO_BS_NH_HS);
           break;
+        case EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD:
+          LAUNCH_FUSED_KV_KERNEL_WITH_FORMAT(
+              T, false,
+              EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD);
+          break;
         default:
           throw std::runtime_error("Unsupported non-MLA EngineKVFormat");
       }
@@ -439,6 +449,11 @@ void multi_layer_kv_transfer_templated(
         case EngineKVFormat::NL_X_NB_TWO_BS_NH_HS:
           LAUNCH_FUSED_KV_KERNEL_WITH_FORMAT(
               T, true, EngineKVFormat::NL_X_NB_TWO_BS_NH_HS);
+          break;
+        case EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD:
+          LAUNCH_FUSED_KV_KERNEL_WITH_FORMAT(
+              T, true,
+              EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD);
           break;
         default:
           throw std::runtime_error("Unsupported non-MLA EngineKVFormat");

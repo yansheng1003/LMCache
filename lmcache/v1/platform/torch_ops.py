@@ -608,7 +608,12 @@ def multi_layer_kv_transfer(
 
     # 2. Determine architecture variant and tensor dimensions.
     is_mla = _format_spec(engine_kv_format).is_mla
-    is_flash_infer = int(engine_kv_format) == int(EngineKVFormat.NL_X_NB_TWO_BS_NH_HS)
+    # int8_per_token_head shares the flash-infer NHD layout (padded HS rides
+    # inside the opaque per-token row), so both formats take the same branch.
+    is_flash_infer = int(engine_kv_format) in (
+        int(EngineKVFormat.NL_X_NB_TWO_BS_NH_HS),
+        int(EngineKVFormat.NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD),
+    )
 
     num_layers = key_value.size(1)
     hidden_size = key_value.size(3)

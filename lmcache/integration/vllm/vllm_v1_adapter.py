@@ -981,6 +981,14 @@ class LMCacheConnectorV1Impl:
         if self.layerwise_retrievers:
             logger.debug(f"Waiting for layer {self.current_layer} to be loaded")
 
+        # NOTE(perf): Reserved hook for async-stream pipelining. The planned
+        # optimization overlaps the layer L+1 CPU->GPU (H2D) transfer with the
+        # layer L compute on the GPU by issuing the transfer on a non-blocking
+        # side stream and syncing with a CUDA event at this barrier instead of
+        # blocking the current stream. Deliberately not implemented yet: it
+        # needs ROCm measurement to validate the overlap before shipping (see
+        # the int8_per_token_head implementation plan).
+
         # Wait for the layer to be loaded
         for layerwise_retriever in self.layerwise_retrievers:
             ret_token_mask = next(layerwise_retriever)

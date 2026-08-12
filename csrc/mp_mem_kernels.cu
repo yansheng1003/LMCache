@@ -41,8 +41,11 @@ __device__ inline size_t calculate_engine_global_offset(
     // Normal HND: L tensors [2, NB, NH, BS, HS]
     return engine_block_idx * scalars_per_block +
            k_or_v * shape_desc.nb * scalars_per_block;
-  } else if constexpr (format == EngineKVFormat::NL_X_NB_TWO_BS_NH_HS) {
-    // Flash Infer: L tensors [NB, 2, BS, NH, HS]
+  } else if constexpr (
+      format == EngineKVFormat::NL_X_NB_TWO_BS_NH_HS ||
+      format == EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD) {
+    // Flash Infer: L tensors [NB, 2, BS, NH, HS] (int8_per_token_head pads
+    // each head with a trailing fp32 scale; the offset math is identical)
     return engine_block_idx * shape_desc.kv_size * scalars_per_block +
            k_or_v * scalars_per_block;
   } else if constexpr (format == EngineKVFormat::NL_X_NB_TWO_NH_BS_HS) {
@@ -318,6 +321,10 @@ __global__ void multi_layer_block_transfer_kernel(
       break;                                                            \
     case EngineKVFormat::NL_X_NB_TWO_BS_NH_HS:                          \
       LAUNCH_KERNEL(DIRECTION, EngineKVFormat::NL_X_NB_TWO_BS_NH_HS);   \
+      break;                                                            \
+    case EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD:      \
+      LAUNCH_KERNEL(DIRECTION,                                          \
+                    EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD); \
       break;                                                            \
     case EngineKVFormat::NL_X_NB_TWO_NH_BS_HS:                          \
       LAUNCH_KERNEL(DIRECTION, EngineKVFormat::NL_X_NB_TWO_NH_BS_HS);   \

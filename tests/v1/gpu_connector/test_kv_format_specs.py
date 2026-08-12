@@ -51,6 +51,9 @@ def _build(name: str):
         "NL_X_NB_BS_NH_TWO_HS": lambda: [_t(NB, BS, NH, 2, HS) for _ in range(NL)],
         "NL_X_NB_NH_BS_CS": lambda: [_t(NB, NH, BS, 2 * HS) for _ in range(NL)],
         "NL_X_NB_BS_NH_CS": lambda: [_t(NB, BS, NH, 2 * HS) for _ in range(NL)],
+        "NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD": lambda: [
+            _t(NB, 2, BS, NH, HS + 4) for _ in range(NL)
+        ],
     }
     return builders[name]()
 
@@ -242,6 +245,22 @@ GOLDEN = {
         tokens_per_layer=PBS,
         elements_per_layer=NB * BS * NH * HS * 2,
         concrete="5 x [7, 3, 2, 8]",
+    ),
+    # int8_per_token_head: the trailing HS token is the padded head stride
+    # (head_size + 4), so hidden_dim == num_heads * head_size still holds and
+    # the symbolic shape renders like the base format (suffix stripped).
+    "NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD": dict(
+        shape_desc="NL x [NB, 2, BS, NH, HS]",
+        num_layers=NL,
+        num_blocks=NB,
+        block_size=BS,
+        page_buffer_size=PBS,
+        num_heads=NH,
+        hidden_dim=NH * (HS + 4),
+        head_size=HS + 4,
+        tokens_per_layer=PBS,
+        elements_per_layer=NB * BS * NH * (HS + 4) * 2,
+        concrete="5 x [7, 2, 3, 2, 8]",
     ),
 }
 

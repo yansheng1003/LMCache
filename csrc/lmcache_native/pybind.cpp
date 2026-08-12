@@ -40,7 +40,9 @@ PYBIND11_MODULE(lmcache_native, m) {
       .value("NL_X_NB_BS_NH_TWO_HS", EngineKVFormat::NL_X_NB_BS_NH_TWO_HS)
       .value("NL_X_NB_NH_BS_CS", EngineKVFormat::NL_X_NB_NH_BS_CS)
       .value("NL_X_NB_BS_NH_CS", EngineKVFormat::NL_X_NB_BS_NH_CS)
-      .value("NL_X_NB_BSV_BSS", EngineKVFormat::NL_X_NB_BSV_BSS);
+      .value("NL_X_NB_BSV_BSS", EngineKVFormat::NL_X_NB_BSV_BSS)
+      .value("NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD",
+             EngineKVFormat::NL_X_NB_TWO_BS_NH_HS_INT8_PER_TOKEN_HEAD);
   m.attr("GPUKVFormat") = m.attr("EngineKVFormat");
 
   py::enum_<TransferDirection>(m, "TransferDirection")
