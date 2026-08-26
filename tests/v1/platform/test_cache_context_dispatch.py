@@ -204,3 +204,40 @@ def test_unregistered_device_type_raises() -> None:
     wrappers = [_FakeWrapper("fakedev")]
     with pytest.raises(ValueError, match="No cache-context class"):
         create_cache_context(wrappers)  # type: ignore[arg-type]
+
+
+def test_cuda_stream_wrapper() -> None:
+    """Test _CudaStreamWrapper behaves properly when CuPy is not available."""
+    # First Party
+    from lmcache.v1.platform.cuda.cache_context import _CudaStreamWrapper
+
+    class _MockStream:
+        def __init__(self) -> None:
+            self.synchronized = False
+            self.cuda_stream = 12345
+
+        def synchronize(self) -> None:
+            self.synchronized = True
+
+        def wait_event(self, event: Any) -> None:
+            pass
+
+        def wait_stream(self, stream: Any) -> None:
+            pass
+
+    mock_stream = _MockStream()
+    device = torch.device("cpu")
+    wrapper = _CudaStreamWrapper(mock_stream, device)
+
+    assert wrapper.cuda_stream == 12345
+    assert wrapper.ptr == 12345
+
+    called: list[str] = []
+    wrapper.launch_host_func(lambda arg: called.append(arg), "test_arg")
+    assert mock_stream.synchronized is True
+    assert called == ["test_arg"]
+
+    wrapper.synchronize()
+    wrapper.wait_event(None)
+    wrapper.wait_stream(None)
+

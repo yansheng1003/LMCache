@@ -55,6 +55,32 @@ def list_to_gpu_tensor(lis: list[int], device: torch.device) -> torch.Tensor:
     )
 
 
+class _CudaStreamWrapper:
+    """Fallback stream wrapper when cupy is not available (e.g. ROCm)."""
+
+    def __init__(self, stream: Any, device: Any) -> None:
+        self.stream = stream
+        self.device = device
+        self.cuda_stream = getattr(stream, "cuda_stream", 0)
+        self.ptr = self.cuda_stream
+
+    def launch_host_func(self, callback: Any, arg: Any = None) -> None:
+        try:
+            self.stream.synchronize()
+            callback(arg)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("launch_host_func callback raised: %s", e)
+
+    def synchronize(self) -> None:
+        self.stream.synchronize()
+
+    def wait_event(self, event: Any) -> None:
+        self.stream.wait_event(event)
+
+    def wait_stream(self, stream: Any) -> None:
+        self.stream.wait_stream(stream)
+
+
 class _TempGPUBuffer:
     """
     Manages the temporary GPU buffer for GPUCacheContext
@@ -418,20 +444,27 @@ class GPUCacheContext(BaseCacheContext):
         with torch_dev.stream(self.cuda_stream_):
             get_gds_context().register_gpu_buffer(self._temp_buffer.buffer)
 
-        # Third Party
-        import cupy
+        try:
+            # Third Party
+            import cupy
 
-        self.cupy_stream_: "cupy.cuda.Stream" = cupy.cuda.ExternalStream(
-            self.cuda_stream_.cuda_stream, self.device_.index
-        )
+            self.cupy_stream_: Any = cupy.cuda.ExternalStream(
+                self.cuda_stream_.cuda_stream, self.device_.index
+            )
 
-        # Extra initialization
-        self.cupy_stream_.launch_host_func(
-            lambda logger: logger.info(
-                "Initialized cuda stream on device %s", str(self.device_)
-            ),
-            logger,
-        )
+            # Extra initialization
+            self.cupy_stream_.launch_host_func(
+                lambda logger: logger.info(
+                    "Initialized cuda stream on device %s", str(self.device_)
+                ),
+                logger,
+            )
+        except ImportError:
+            self.cupy_stream_ = _CudaStreamWrapper(self.cuda_stream_, self.device_)
+            logger.info(
+                "Initialized cuda stream on device %s (cupy fallback)",
+                str(self.device_),
+            )
 
     def close(self) -> None:
         """
@@ -561,20 +594,27 @@ class PlainGPUCacheContext:
 
         # GPU streams
         self._cuda_stream = torch_dev.Stream(device=self._device)
-        # Third Party
-        import cupy
+        try:
+            # Third Party
+            import cupy
 
-        self._cupy_stream: "cupy.cuda.Stream" = cupy.cuda.ExternalStream(
-            self._cuda_stream.cuda_stream, self._device.index
-        )
+            self._cupy_stream: Any = cupy.cuda.ExternalStream(
+                self._cuda_stream.cuda_stream, self._device.index
+            )
 
-        # Extra initialization
-        self._cupy_stream.launch_host_func(
-            lambda logger: logger.info(
-                "Initialized cuda stream on device %s", str(self._device)
-            ),
-            logger,
-        )
+            # Extra initialization
+            self._cupy_stream.launch_host_func(
+                lambda logger: logger.info(
+                    "Initialized cuda stream on device %s", str(self._device)
+                ),
+                logger,
+            )
+        except ImportError:
+            self._cupy_stream = _CudaStreamWrapper(self._cuda_stream, self._device)
+            logger.info(
+                "Initialized cuda stream on device %s (cupy fallback)",
+                str(self._device),
+            )
 
     def get_kv_buffer_shape(self, num_tokens: int) -> torch.Size:
         """

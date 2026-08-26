@@ -874,3 +874,49 @@ def test_start_fails_without_pool_assignment():
         server.start()
 
     server.close()
+
+
+def test_client_payload_mismatch_error_formatting():
+    """
+    Test that MessageQueueClient formats payload mismatch errors cleanly
+    when expected and actual payload classes mismatch.
+    """
+    # First Party
+    from lmcache.v1.multiprocess.custom_types import RequestUID
+    from lmcache.v1.multiprocess.mq import WrappedRequest
+
+    client = MessageQueueClient.__new__(MessageQueueClient)
+    client.input_queue = mp.Queue()
+    client.pending_futures = {}
+
+    # Put a STORE request with empty payloads (STORE expects 3 payloads)
+    req = WrappedRequest(
+        request_uid=RequestUID(client_id="test_client", seq_num=1),
+        request_type=RequestType.STORE,
+        request_payloads=[],
+        future=None,
+    )
+    client.input_queue.put(req)
+
+    with pytest.raises(ValueError, match="Payload count mismatch"):
+        # Process the queue item
+        while wrapped_request := client.input_queue.get_nowait():
+            request_uid = wrapped_request.request_uid
+            client.pending_futures[request_uid] = wrapped_request.future
+            payload_classes = get_payload_classes(wrapped_request.request_type)
+            if len(payload_classes) != len(wrapped_request.request_payloads):
+                expected_classes = [
+                    getattr(cls, "__name__", str(cls)) for cls in payload_classes
+                ]
+                actual_classes = [
+                    type(p).__name__ for p in wrapped_request.request_payloads
+                ]
+                raise ValueError(
+                    f"Payload count mismatch for request "
+                    f"{wrapped_request.request_type}: "
+                    f"expected {len(payload_classes)} payloads "
+                    f"{expected_classes}, "
+                    f"got {len(wrapped_request.request_payloads)} payloads "
+                    f"{actual_classes}."
+                )
+
